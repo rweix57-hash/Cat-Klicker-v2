@@ -3,501 +3,379 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Treat Clicker - The Cat Game</title>
-    <!-- Load Tailwind CSS -->
+    <title>Treat Clicker</title>
+    <!-- Load Tailwind CSS from CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb;
-            color: #333;
-        }
-        .cat-button {
-            transition: transform 0.1s;
+        body { font-family: 'Inter', sans-serif; background-color: #f7f3f1; }
+        #cat-image {
             cursor: pointer;
-            /* Enhanced shadow to match the cat's orange/yellow color */
-            box-shadow: 0 10px 20px rgba(255, 165, 0, 0.5), 0 0 10px rgba(255, 165, 0, 0.3);
-            border: 4px solid #f97316;
-            border-radius: 50%;
+            transition: transform 0.1s ease-out;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+            border: 8px solid #ff7f50; /* Coral border */
         }
-        .cat-button:hover {
-            transform: scale(1.03);
-            box-shadow: 0 12px 25px rgba(255, 165, 0, 0.6), 0 0 15px rgba(255, 165, 0, 0.4);
-        }
-        .cat-button:active {
+        #cat-image:active {
             transform: scale(0.95);
-            box-shadow: 0 5px 10px rgba(255, 165, 0, 0.4);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
         }
         .upgrade-card {
-            transition: all 0.2s;
+            transition: background-color 0.15s;
         }
-        .upgrade-card:not(.disabled):hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        .upgrade-card:hover {
+            background-color: #ffe6dd; /* Light coral hover */
         }
-        .upgrade-card.disabled {
-            cursor: not-allowed;
-            opacity: 0.6;
-            filter: grayscale(10%);
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
         }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
+    <!-- Firebase Message Box (Hidden by Default) -->
+    <div id="message-box" class="message-box hidden bg-white p-6 rounded-xl shadow-2xl max-w-sm text-center border-t-4 border-red-500">
+        <p class="text-lg font-bold text-red-700 mb-4">Error</p>
+        <p id="message-text" class="text-gray-700 mb-6">There was an issue loading the game data.</p>
+        <button onclick="document.getElementById('message-box').classList.add('hidden')" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150">
+            Close
+        </button>
+    </div>
+
     <!-- Main Game Container -->
-    <div class="w-full max-w-4xl bg-white rounded-xl shadow-2xl p-6 lg:p-10 flex flex-col lg:flex-row gap-8 border border-gray-100">
+    <div class="w-full max-w-6xl flex flex-col lg:flex-row bg-white rounded-2xl shadow-xl p-6 lg:p-10">
 
-        <!-- Cat Clicker Column -->
-        <div class="lg:w-1/2 flex flex-col items-center justify-center">
-            <h1 class="text-4xl font-bold text-orange-600 mb-2">Treat Clicker</h1>
-            <p class="text-xl text-gray-600 mb-6">Start by clicking your adorable cat!</p>
+        <!-- Left Column: Stats and Cat Image -->
+        <div class="flex-1 lg:pr-8 mb-8 lg:mb-0">
+            <h1 class="text-4xl font-extrabold text-orange-600 mb-2 text-center lg:text-left">Treat Clicker</h1>
+            <p class="text-gray-500 text-center lg:text-left mb-6">Make this kitty rich!</p>
 
-            <!-- Score Display -->
-            <div class="bg-yellow-100 p-4 rounded-xl shadow-inner mb-8 w-full max-w-xs text-center border-b-4 border-yellow-300">
-                <span id="treats-display" class="text-5xl font-extrabold text-gray-800 tabular-nums">0</span>
-                <p class="text-lg text-gray-500">Treats</p>
+            <!-- Stats -->
+            <div class="bg-yellow-50 border-4 border-yellow-300 rounded-xl p-4 mb-8 shadow-inner">
+                <div class="text-2xl font-bold text-gray-700 mb-1 flex justify-between">
+                    <span>Treats:</span>
+                    <span id="treat-count" class="text-orange-700">0</span>
+                </div>
+                <div class="text-lg text-gray-600 flex justify-between">
+                    <span>Treats per Second (CPS):</span>
+                    <span id="cps-count" class="text-green-600">0</span>
+                </div>
+                <div class="text-lg text-gray-600 flex justify-between">
+                    <span>Treats per Click:</span>
+                    <span id="cpc-count" class="text-blue-600">1</span>
+                </div>
+                <p id="user-id-display" class="text-sm text-gray-400 mt-2 text-center break-all">User ID: Loading...</p>
             </div>
 
-            <!-- Clickable Cat Area -->
-            <div id="cat-click-area" class="cat-button w-40 h-40 lg:w-60 lg:h-60 mb-6" title="Click me for Treats!">
-                <!-- Updated to use the file path from the latest upload -->
-                <img id="cat-image" 
-                     src="uploaded:Screenshot 2025-11-09 170341.png-c4143941-9b2b-4819-93f5-818bb111110b" 
-                     alt="Your adorable cat" 
-                     class="w-full h-full object-cover rounded-full select-none"
-                     onerror="this.src='https://placehold.co/240x240/f97316/ffffff?text=CAT+CLICK'"
-                >
+            <!-- Cat Image Clicker Area -->
+            <div class="flex justify-center items-center">
+                <img id="cat-image" src="Screenshot 2025-11-09 170341.png" alt="Adorable cat standing, ready to be clicked." class="w-full max-w-xs h-auto rounded-full ring-4 ring-offset-4 ring-orange-400">
             </div>
-            <p id="cps-display" class="text-lg text-gray-700 font-semibold mt-4">Treats Per Second: 0</p>
+
         </div>
 
-        <!-- Upgrades Column -->
-        <div class="lg:w-1/2">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Upgrades</h2>
-            <div id="upgrades-list" class="space-y-4">
-                <!-- Upgrade Cards will be inserted here -->
+        <!-- Right Column: Upgrades -->
+        <div class="flex-1">
+            <h2 class="text-3xl font-bold text-gray-700 mb-6 text-center lg:text-left">Upgrades</h2>
+            <div id="upgrades-container" class="space-y-4">
+                <!-- Upgrade Cards will be populated here -->
             </div>
         </div>
     </div>
 
-    <!-- Footer for User ID and Status -->
-    <div class="fixed bottom-0 left-0 right-0 bg-gray-800 text-white p-2 text-center text-sm shadow-inner">
-        <p id="auth-status">Initializing Firebase...</p>
-        <p>User ID: <span id="user-id-display" class="font-mono text-xs ml-2">Loading...</span></p>
-    </div>
-
-    <!-- Firebase Imports and Game Script -->
+    <!-- Firebase and Game Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // --- Firebase Imports (Fixed to use standard CDN imports) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-        // --- GLOBAL VARIABLES (Provided by Canvas Environment) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cat-clicker-app-id';
+        // Set log level to debug for better console feedback
+        setLogLevel('debug');
+
+        // --- Global Variables (Canvas Context) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-treat-clicker-app';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        if (!firebaseConfig) {
-            console.error("Firebase config is missing.");
-            document.getElementById('auth-status').textContent = "ERROR: Firebase config missing.";
-            document.getElementById('user-id-display').textContent = "N/A";
-        }
-
-        // --- GAME STATE ---
-        let treats = 0;
-        let cps = 0;
-        let userId = null;
         let db = null;
         let auth = null;
+        let userId = 'loading';
         let isAuthReady = false;
 
-        // Base costs and power for upgrades
-        const UPGRADE_DATA = {
-            click_power: { 
-                name: "Paws of Fury (Click)", 
-                desc: "Increases Treats per click.", 
-                baseCost: 10, 
-                basePower: 1, 
-                level: 1 
-            },
-            purrer: { 
-                name: "Automatic Purrer (Passive)", 
-                desc: "Generates treats automatically.", 
-                baseCost: 50, 
-                basePower: 0.5, 
-                level: 0 
-            },
-            farm: { 
-                name: "Catnip Farm (Passive)", 
-                desc: "Massively boosts passive income.", 
-                baseCost: 1000, 
-                basePower: 10, 
-                level: 0 
-            }
-        };
+        // --- Game State ---
+        let treats = 0;
+        let cpc = 1; // Clicks per treat
+        let cps = 0; // Treats per second
+        let gameInitialized = false;
 
-        // --- FIREBASE SETUP & AUTH ---
+        const UPGRADE_DATA = [
+            { id: 'click-power', name: 'Paws of Fury (Click)', baseCost: 10, multiplier: 1.15, baseCpcIncrease: 1, level: 0, type: 'cpc' },
+            { id: 'auto-purrer', name: 'Automatic Purrer', baseCost: 50, multiplier: 1.20, baseCpsIncrease: 1, level: 0, type: 'cps' },
+            { id: 'catnip-farm', name: 'Catnip Farm', baseCost: 500, multiplier: 1.25, baseCpsIncrease: 10, level: 0, type: 'cps' },
+            { id: 'laser-pointer', name: 'Laser Pointer Brigade', baseCost: 5000, multiplier: 1.30, baseCpsIncrease: 100, level: 0, type: 'cps' }
+        ];
 
-        /**
-         * Initializes Firebase and authenticates the user.
-         */
-        async function initializeFirebase() {
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                
-                document.getElementById('auth-status').textContent = "Authenticating...";
+        // --- DOM Elements ---
+        const treatCountEl = document.getElementById('treat-count');
+        const cpsCountEl = document.getElementById('cps-count');
+        const cpcCountEl = document.getElementById('cpc-count');
+        const userIdDisplayEl = document.getElementById('user-id-display');
+        const catImageEl = document.getElementById('cat-image');
+        const upgradesContainerEl = document.getElementById('upgrades-container');
 
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                // Listen for Auth state change and set user ID
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        document.getElementById('user-id-display').textContent = userId;
-                        document.getElementById('auth-status').textContent = "Ready";
-                        isAuthReady = true;
-                        loadGameData();
-                        startGameLoop();
-                    } else {
-                        // This should ideally not happen if anonymous sign-in is successful
-                        userId = 'unauthenticated';
-                        document.getElementById('user-id-display').textContent = userId;
-                        document.getElementById('auth-status').textContent = "Error: Not Signed In";
-                    }
-                });
-
-            } catch (error) {
-                console.error("Firebase initialization or auth error:", error);
-                document.getElementById('auth-status').textContent = `ERROR: ${error.message}`;
-            }
+        // --- Utility Functions ---
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return Math.floor(num);
         }
-        
-        // --- FIREBASE DATA HANDLING ---
 
-        const getGameDataRef = () => {
-            if (!db || !userId) return null;
-            // Private data path: /artifacts/{appId}/users/{userId}/cat_clicker/game_data
-            const collectionPath = `artifacts/${appId}/users/${userId}/cat_clicker`;
-            return doc(db, collectionPath, 'game_data');
-        };
+        function calculateCost(upgrade) {
+            return Math.floor(upgrade.baseCost * Math.pow(upgrade.multiplier, upgrade.level));
+        }
 
-        /**
-         * Loads game data from Firestore using a real-time listener.
-         */
-        function loadGameData() {
-            const dataRef = getGameDataRef();
-            if (!dataRef) return;
+        function showMessage(title, text) {
+            const box = document.getElementById('message-box');
+            document.getElementById('message-text').innerText = text;
+            box.querySelector('p:first-child').innerText = title;
+            box.classList.remove('hidden');
+        }
 
-            onSnapshot(dataRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    treats = data.treats || 0;
-                    // Ensure click_power starts at 1 if not defined
-                    const newUpgrades = data.upgrades || {};
-                    if (newUpgrades.click_power === undefined) {
-                        newUpgrades.click_power = 1;
-                    }
-                    
-                    // Update local UPGRADE_DATA levels
-                    Object.keys(UPGRADE_DATA).forEach(key => {
-                        UPGRADE_DATA[key].level = newUpgrades[key] !== undefined ? newUpgrades[key] : UPGRADE_DATA[key].level;
-                    });
+        // --- Game Logic ---
 
-                    updateCPS(); // Recalculate CPS based on loaded levels
-                    updateUI();
-                } else {
-                    // Initialize game state on first run
-                    console.log("No game data found. Initializing...");
-                    saveGameData(); 
-                }
-            }, (error) => {
-                console.error("Firestore listen error:", error);
+        function updateDisplay() {
+            treatCountEl.textContent = formatNumber(treats);
+            cpsCountEl.textContent = formatNumber(cps);
+            cpcCountEl.textContent = formatNumber(cpc);
+            userIdDisplayEl.textContent = `User ID: ${userId}`;
+        }
+
+        function calculateCpc() {
+            const clickUpgrade = UPGRADE_DATA.find(u => u.id === 'click-power');
+            cpc = 1 + (clickUpgrade.level * clickUpgrade.baseCpcIncrease);
+        }
+
+        function calculateCps() {
+            cps = UPGRADE_DATA
+                .filter(u => u.type === 'cps')
+                .reduce((total, upgrade) => total + (upgrade.level * upgrade.baseCpsIncrease), 0);
+        }
+
+        function renderUpgrades() {
+            upgradesContainerEl.innerHTML = ''; // Clear existing
+            UPGRADE_DATA.forEach(upgrade => {
+                const cost = calculateCost(upgrade);
+                const canAfford = treats >= cost;
+
+                const card = document.createElement('div');
+                card.id = `upgrade-${upgrade.id}`;
+                card.className = `upgrade-card p-4 rounded-xl shadow-md flex justify-between items-center transition-all duration-300 ${canAfford ? 'bg-orange-100 hover:bg-orange-200 cursor-pointer' : 'bg-gray-100 cursor-not-allowed opacity-70'}`;
+                card.onclick = () => buyUpgrade(upgrade.id);
+
+                const info = `
+                    <div class="flex-1 mr-4">
+                        <h3 class="text-xl font-semibold text-gray-800">${upgrade.name}</h3>
+                        <p class="text-sm text-gray-600">${upgrade.type === 'cpc' ? `+${formatNumber(upgrade.baseCpcIncrease)} Treats per Click` : `+${formatNumber(upgrade.baseCpsIncrease)} CPS`}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-bold ${canAfford ? 'text-green-600' : 'text-red-500'}">${formatNumber(cost)} Treats</p>
+                        <p class="text-sm font-medium text-blue-600">Level: ${upgrade.level}</p>
+                    </div>
+                `;
+                card.innerHTML = info;
+                upgradesContainerEl.appendChild(card);
             });
         }
 
-        /**
-         * Saves current game data to Firestore.
-         */
-        async function saveGameData() {
-            const dataRef = getGameDataRef();
-            if (!dataRef) return;
-
-            const upgradesToSave = {};
-            Object.keys(UPGRADE_DATA).forEach(key => {
-                upgradesToSave[key] = UPGRADE_DATA[key].level;
-            });
-
-            const data = {
-                treats: treats,
-                cps: cps,
-                upgrades: upgradesToSave,
-                lastUpdated: Date.now()
-            };
-
-            try {
-                // Use setDoc to create or overwrite the document
-                await setDoc(dataRef, data, { merge: true });
-            } catch (error) {
-                console.error("Error saving game data:", error);
+        function gameLoop() {
+            if (gameInitialized) {
+                // Add treats based on CPS every second
+                treats += cps;
+                updateDisplay();
+                // We don't save every second, only when a major change happens (like buying)
             }
+            // Runs every 1000 milliseconds (1 second)
+            setTimeout(gameLoop, 1000); 
         }
 
-        // --- GAME LOGIC ---
+        // --- User Actions ---
 
-        /**
-         * Calculates and updates the current Clicks Per Second (CPS).
-         */
-        function updateCPS() {
-            let newCps = 0;
-            newCps += UPGRADE_DATA.purrer.level * UPGRADE_DATA.purrer.basePower;
-            newCps += UPGRADE_DATA.farm.level * UPGRADE_DATA.farm.basePower;
-            cps = parseFloat(newCps.toFixed(2));
-        }
-
-        /**
-         * Handles the main cat click event.
-         */
-        function handleCatClick() {
-            const clickPower = UPGRADE_DATA.click_power.level * UPGRADE_DATA.click_power.basePower;
-            treats += clickPower;
-            saveGameData();
+        function clickCat() {
+            if (!gameInitialized) return;
             
-            // Visual feedback
-            showClickEffect(clickPower);
+            treats += cpc;
+            updateDisplay();
+            // Minor visual effect on click (already handled by CSS :active)
+            saveGame(); // Save on click for persistence, though this might be heavy.
         }
 
-        /**
-         * Handles the purchase of an upgrade.
-         * @param {string} upgradeKey - The key of the upgrade to purchase.
-         */
-        function buyUpgrade(upgradeKey) {
-            const upgrade = UPGRADE_DATA[upgradeKey];
-            if (!upgrade) return;
+        function buyUpgrade(id) {
+            if (!gameInitialized) return;
 
-            const cost = calculateCost(upgradeKey);
+            const upgrade = UPGRADE_DATA.find(u => u.id === id);
+            const cost = calculateCost(upgrade);
 
             if (treats >= cost) {
                 treats -= cost;
                 upgrade.level += 1;
+
+                // Recalculate stats
+                calculateCpc();
+                calculateCps();
                 
-                if (upgradeKey !== 'click_power') {
-                    updateCPS();
-                }
-                
-                saveGameData();
-                updateUI();
-            } else {
-                alertUser("Not enough treats!");
-            }
-        }
-
-        /**
-         * Calculates the cost of the next level of an upgrade.
-         * @param {string} upgradeKey - The key of the upgrade.
-         * @returns {number} The cost.
-         */
-        function calculateCost(upgradeKey) {
-            const upgrade = UPGRADE_DATA[upgradeKey];
-            // Exponential cost increase
-            return Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.level));
-        }
-
-        /**
-         * The main game loop for passive treat generation.
-         */
-        function startGameLoop() {
-            setInterval(() => {
-                if (isAuthReady && cps > 0) {
-                    treats += cps / 10; // Add 1/10th of CPS every 100ms
-                    // Debounce saving to prevent excessive writes
-                    if (Date.now() % 1000 < 100) { // Save roughly once per second
-                         saveGameData();
-                    }
-                    updateUI(false); // Only update UI, not saving the doc
-                }
-            }, 100); // Run every 100 milliseconds
-        }
-
-        // --- UI UPDATES ---
-
-        /**
-         * Updates all display elements on the screen.
-         * @param {boolean} forceUpgrades - Whether to force a redraw of upgrade cards. Default is true.
-         */
-        function updateUI(forceUpgrades = true) {
-            document.getElementById('treats-display').textContent = formatNumber(Math.floor(treats));
-            document.getElementById('cps-display').textContent = `Treats Per Second: ${formatNumber(cps)}`;
-            
-            if (forceUpgrades) {
+                // Update display and save
+                updateDisplay();
                 renderUpgrades();
+                saveGame();
+
             } else {
-                // Just update button states if not forcing a full redraw
-                Object.keys(UPGRADE_DATA).forEach(key => {
-                    const button = document.getElementById(`buy-btn-${key}`);
-                    if (button) {
-                        const cost = calculateCost(key);
-                        const canAfford = treats >= cost;
-                        button.disabled = !canAfford;
-                        button.textContent = `Buy for ${formatNumber(cost)}`;
-                        const card = button.closest('.upgrade-card');
-                        if (card) {
-                            card.classList.toggle('disabled', !canAfford);
-                        }
-                    }
-                });
+                showMessage('Cannot Afford', `You need ${formatNumber(cost)} treats to buy ${upgrade.name}, but you only have ${formatNumber(treats)}.`);
             }
         }
 
-        /**
-         * Generates and renders the upgrade cards.
-         */
-        function renderUpgrades() {
-            const list = document.getElementById('upgrades-list');
-            list.innerHTML = ''; // Clear existing list
+        // --- Firebase Integration ---
+        
+        function getGameDocRef(uid) {
+            // Private data storage path: /artifacts/{appId}/users/{userId}/game_data/main_game_state
+            return doc(db, 'artifacts', appId, 'users', uid, 'game_data', 'main_game_state');
+        }
 
-            Object.keys(UPGRADE_DATA).forEach(key => {
-                const upgrade = UPGRADE_DATA[key];
-                const cost = calculateCost(key);
-                const canAfford = treats >= cost;
-                
-                const powerText = key === 'click_power' 
-                    ? `+${upgrade.basePower} Treats/Click` 
-                    : `+${upgrade.basePower} Treats/sec`;
+        async function saveGame() {
+            if (!isAuthReady || !db) return;
+            
+            const gameState = {
+                treats: treats,
+                cpc: cpc, // Calculated value, but good to save for debugging
+                cps: cps, // Calculated value, but good to save for debugging
+                upgrades: UPGRADE_DATA.map(u => ({ id: u.id, level: u.level })),
+                lastSave: Date.now()
+            };
 
-                const card = document.createElement('div');
-                card.id = `upgrade-card-${key}`;
-                card.className = `upgrade-card p-4 bg-gray-50 rounded-lg shadow-md flex justify-between items-center transition-all ${canAfford ? 'cursor-pointer' : 'disabled'}`;
-                card.innerHTML = `
-                    <div class="flex-grow">
-                        <h3 class="text-xl font-bold text-gray-700">${upgrade.name} (Lvl ${upgrade.level})</h3>
-                        <p class="text-sm text-gray-500">${upgrade.desc}</p>
-                        <p class="text-sm font-semibold text-green-600">${powerText}</p>
-                    </div>
-                    <button id="buy-btn-${key}" 
-                            class="ml-4 px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition disabled:bg-gray-400"
-                            ${canAfford ? '' : 'disabled'}>
-                        Buy for ${formatNumber(cost)}
-                    </button>
-                `;
+            try {
+                // Use setDoc to save the state at the specific document reference
+                await setDoc(getGameDocRef(userId), gameState);
+                // console.log("Game saved successfully.");
+            } catch (error) {
+                console.error("Error saving game:", error);
+                // showMessage('Save Error', 'Could not save game data. Check your network connection.');
+            }
+        }
 
-                list.appendChild(card);
-                
-                // Add event listener to the button
-                const button = document.getElementById(`buy-btn-${key}`);
-                button.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent card click logic if any
-                    buyUpgrade(key);
-                });
-                
-                // Add event listener to the card (for clicking anywhere on the card)
-                card.addEventListener('click', () => {
-                    if (canAfford) {
-                        buyUpgrade(key);
+        function setupFirestoreListener() {
+            if (!isAuthReady || !db) return;
+
+            const docRef = getGameDocRef(userId);
+
+            // Set up a real-time listener
+            onSnapshot(docRef, (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    const data = docSnapshot.data();
+                    
+                    treats = data.treats || 0;
+                    
+                    // Load upgrade levels
+                    if (data.upgrades && Array.isArray(data.upgrades)) {
+                        data.upgrades.forEach(savedUpgrade => {
+                            const localUpgrade = UPGRADE_DATA.find(u => u.id === savedUpgrade.id);
+                            if (localUpgrade) {
+                                localUpgrade.level = savedUpgrade.level;
+                            }
+                        });
                     }
-                });
+
+                    // Recalculate stats based on loaded levels
+                    calculateCpc();
+                    calculateCps();
+                    
+                    // Check for offline treats (simple logic)
+                    const lastSaveTime = data.lastSave || Date.now();
+                    const timeElapsedSeconds = Math.floor((Date.now() - lastSaveTime) / 1000);
+                    
+                    if (timeElapsedSeconds > 5 && data.cps > 0) {
+                        const offlineGain = timeElapsedSeconds * data.cps;
+                        treats += offlineGain;
+                        showMessage('Welcome Back!', `You earned ${formatNumber(offlineGain)} treats while you were away!`);
+                        // Immediately save the updated treats
+                        saveGame(); 
+                    }
+                    
+                    gameInitialized = true;
+                    updateDisplay();
+                    renderUpgrades();
+
+                } else if (!gameInitialized) {
+                    // Document doesn't exist, create initial game state
+                    gameInitialized = true;
+                    updateDisplay();
+                    renderUpgrades();
+                    saveGame();
+                }
+            }, (error) => {
+                console.error("Firestore listen error:", error);
+                showMessage('Connection Error', 'Could not connect to game data server. Please check your connection.');
             });
         }
         
-        // --- UTILITY FUNCTIONS ---
+        // --- Initialization ---
 
-        /**
-         * Formats a number with K, M, B suffixes.
-         * @param {number} num - The number to format.
-         * @returns {string} The formatted string.
-         */
-        function formatNumber(num) {
-            if (num === 0) return '0';
-            num = Math.floor(num);
-            const absNum = Math.abs(num);
-            if (absNum >= 1000000000) return (num / 1000000000).toFixed(2).replace(/\.00$/, '') + 'B';
-            if (absNum >= 1000000) return (num / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
-            if (absNum >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        }
-        
-        /**
-         * Displays a temporary visual effect for click feedback.
-         * @param {number} value - The value to display.
-         */
-        function showClickEffect(value) {
-            const effect = document.createElement('div');
-            effect.textContent = `+${formatNumber(value)}`;
-            effect.className = 'absolute text-4xl font-extrabold text-orange-500 pointer-events-none opacity-0 transition-all duration-1000';
-            
-            const catArea = document.getElementById('cat-click-area');
-            const rect = catArea.getBoundingClientRect();
-            
-            // Randomize starting position slightly around the cat
-            const xOffset = Math.random() * rect.width * 0.5 - rect.width * 0.25;
-            const yOffset = Math.random() * rect.height * 0.5 - rect.height * 0.25;
-
-            effect.style.left = `${rect.left + rect.width / 2 + xOffset}px`;
-            effect.style.top = `${rect.top + rect.height / 2 + yOffset}px`;
-            effect.style.transform = 'translate(-50%, -50%)';
-
-            document.body.appendChild(effect);
-            
-            // Trigger animation
-            setTimeout(() => {
-                effect.style.opacity = '1';
-                effect.style.top = `${rect.top + rect.height / 2 + yOffset - 50}px`; // Move up
-            }, 10);
-
-            // Clean up after animation
-            setTimeout(() => {
-                effect.style.opacity = '0';
-                effect.remove();
-            }, 1000);
-        }
-        
-        /**
-         * Placeholder for user alert (as window.alert is forbidden).
-         * @param {string} message - The message to display.
-         */
-        function alertUser(message) {
-            console.log("User Alert:", message);
-            // In a full app, this would be a modal or temporary toast notification.
-            // For now, we'll use a temporary visual indicator.
-            const status = document.getElementById('auth-status');
-            const originalText = status.textContent;
-            status.textContent = message;
-            status.style.backgroundColor = '#f87171';
-            status.style.color = 'white';
-            
-            setTimeout(() => {
-                status.textContent = originalText;
-                status.style.backgroundColor = '';
-                status.style.color = '';
-            }, 2000);
-        }
-
-        // --- INITIALIZATION ---
-        
-        window.onload = () => {
-            // Set up event listeners
-            document.getElementById('cat-click-area').addEventListener('click', handleCatClick);
-
-            // Start Firebase initialization
-            if (firebaseConfig) {
-                initializeFirebase();
-            } else {
-                 // Fallback for non-authenticated local testing (no persistence)
-                 document.getElementById('auth-status').textContent = "Local Mode (No Save)";
-                 document.getElementById('user-id-display').textContent = "N/A (Local)";
-                 isAuthReady = true;
-                 updateCPS();
-                 updateUI();
-                 startGameLoop();
+        async function initFirebase() {
+            if (!firebaseConfig) {
+                showMessage('Fatal Error', 'Firebase configuration is missing. Cannot initialize game.');
+                return;
             }
-        };
 
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Check for existing token or sign in anonymously
+                await new Promise((resolve) => {
+                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            userId = user.uid;
+                        } else {
+                            // If no user, sign in anonymously or with custom token
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                                userId = auth.currentUser.uid;
+                            } else {
+                                const anonymousUser = await signInAnonymously(auth);
+                                userId = anonymousUser.user.uid;
+                            }
+                        }
+                        isAuthReady = true;
+                        unsubscribe(); // Stop listening after successful auth
+                        resolve();
+                    });
+                });
+                
+                setupFirestoreListener(); // Start listening for data now that auth is ready
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                showMessage('Firebase Error', `Could not connect to the database. Error: ${error.message}`);
+            }
+        }
+        
+        // --- Start Application ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set up event listeners
+            catImageEl.addEventListener('click', clickCat);
+            
+            // Start Firebase and game logic
+            initFirebase();
+            
+            // Start the main game loop (treats per second calculation)
+            gameLoop();
+        });
+        
     </script>
 </body>
 </html>
